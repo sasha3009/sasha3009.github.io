@@ -3,65 +3,64 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Circle Tap — Combo & Difficulty</title>
+<title>Circle Tap — Improved</title>
 
 <style>
-  html, body {
-    margin: 0;
-    height: 100%;
-    background:#111;
-    color:#fff;
-    font-family: system-ui, -apple-system, Segoe UI, Arial;
-  }
+html, body {
+  margin:0;
+  height:100%;
+  background:#111;
+  color:#fff;
+  font-family:system-ui, -apple-system, Segoe UI, Arial;
+}
 
-  #gameCanvas {
-    display:block;
-    width:100vw;
-    height:100vh;
-    touch-action:none;
-  }
+#gameCanvas{
+  display:block;
+  width:100vw;
+  height:100vh;
+  touch-action:none;
+}
 
-  .hud {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    display:flex;
-    gap:12px;
-    align-items:center;
-    background: rgba(0,0,0,.35);
-    padding: 8px 10px;
-    border-radius: 8px;
-    backdrop-filter: blur(4px);
-  }
+.hud{
+  position:fixed;
+  top:10px;
+  left:10px;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  background:rgba(0,0,0,.35);
+  padding:8px 10px;
+  border-radius:8px;
+  backdrop-filter:blur(4px);
+}
 
-  .controls {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    display:flex;
-    gap:8px;
-    align-items:center;
-    background: rgba(0,0,0,.35);
-    padding: 8px 10px;
-    border-radius: 8px;
-    backdrop-filter: blur(4px);
-  }
+.controls{
+  position:fixed;
+  top:10px;
+  right:10px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  background:rgba(0,0,0,.35);
+  padding:8px 10px;
+  border-radius:8px;
+  backdrop-filter:blur(4px);
+}
 
-  select {
-    appearance:none;
-    background:#222;
-    color:#fff;
-    border:1px solid #444;
-    padding:6px 10px;
-    border-radius:6px;
-  }
+select{
+  background:#222;
+  color:#fff;
+  border:1px solid #444;
+  padding:6px 10px;
+  border-radius:6px;
+}
 </style>
 </head>
 <body>
 
 <div class="hud">
   <span><b>Score:</b> <span id="scoreText">0</span></span>
-  <span id="comboText" style="margin-left:12px; color:#ffd54d; font-weight:700;"></span>
+  <span id="comboText" style="color:#ffd54d;font-weight:700;"></span>
 </div>
 
 <div class="controls">
@@ -75,8 +74,218 @@
 
 <canvas id="gameCanvas"></canvas>
 
-<!-- JS読み込み -->
-<script src="game.js"></script>
+<script>
+/* ==============================
+   初期設定
+============================== */
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let DPR = window.devicePixelRatio || 1;
+
+function resizeCanvas(){
+  DPR = window.devicePixelRatio || 1;
+
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * DPR;
+  canvas.height = rect.height * DPR;
+
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+/* ==============================
+   難易度設定
+============================== */
+
+const BASE = {
+  spawnIntervalSec:1.5,
+  comboWindowSec:1.5,
+  comboStep:0.2,
+  speedMin:80,
+  speedMax:160,
+  bombChance:0.1,
+  bonusChance:0.12
+};
+
+function buildDifficulty(mult){
+  return {
+    spawnIntervalSec:Math.max(0.4, BASE.spawnIntervalSec - mult*0.3),
+    comboWindowSec:Math.max(0.5, BASE.comboWindowSec - mult*0.1),
+    comboStep:BASE.comboStep,
+    speedMin:BASE.speedMin,
+    speedMax:BASE.speedMax,
+    bombChance:BASE.bombChance,
+    bonusChance:BASE.bonusChance
+  };
+}
+
+const DIFFICULTIES={
+  easy: buildDifficulty(0),
+  normal: buildDifficulty(1),
+  hard: buildDifficulty(2)
+};
+
+let settings = DIFFICULTIES.normal;
+
+document.getElementById("difficulty").addEventListener("change",e=>{
+  settings = DIFFICULTIES[e.target.value];
+});
+
+/* ==============================
+   ゲーム変数
+============================== */
+
+let circles=[];
+let score=0;
+let combo=0;
+let lastHit=0;
+let spawnTimer=0;
+let lastTime=performance.now();
+
+const scoreText=document.getElementById("scoreText");
+const comboText=document.getElementById("comboText");
+
+/* ==============================
+   ユーティリティ
+============================== */
+
+function rand(min,max){ return min+Math.random()*(max-min); }
+
+function getCanvasSize(){
+  const rect = canvas.getBoundingClientRect();
+  return {w:rect.width,h:rect.height};
+}
+
+function spawnCircle(){
+  const {w,h}=getCanvasSize();
+  const r=Math.random();
+
+  let type="normal";
+  let color=["red","blue","green","yellow","purple","orange"][Math.floor(Math.random()*6)];
+  let points=10;
+
+  if(r<settings.bombChance){
+    type="bomb";
+    color="black";
+    points=-50;
+  }else if(r<settings.bombChance+settings.bonusChance){
+    type="bonus";
+    color="gold";
+    points=50;
+  }
+
+  circles.push({
+    x:rand(40,w-40),
+    y:h+40,
+    radius:rand(20,40),
+    speed:rand(settings.speedMin,settings.speedMax),
+    color,
+    points,
+    type
+  });
+}
+
+function hitCircle(x,y,c){
+  return Math.hypot(x-c.x,y-c.y)<c.radius;
+}
+
+function applyScore(points){
+  const now=performance.now();
+
+  if(points<0){
+    combo=0;
+    comboText.textContent="";
+    return points;
+  }
+
+  if(now-lastHit <= settings.comboWindowSec*1000){
+    combo++;
+  }else{
+    combo=1;
+  }
+
+  lastHit=now;
+
+  const mult=1+settings.comboStep*(combo-1);
+  const gained=Math.round(points*mult);
+
+  comboText.textContent = combo>=2 ? `Combo x${combo}` : "";
+  return gained;
+}
+
+/* ==============================
+   入力処理
+============================== */
+
+function handleInput(cx,cy){
+  const rect=canvas.getBoundingClientRect();
+  const x=cx-rect.left;
+  const y=cy-rect.top;
+
+  for(let i=circles.length-1;i>=0;i--){
+    if(hitCircle(x,y,circles[i])){
+      score+=applyScore(circles[i].points);
+      scoreText.textContent=score;
+      circles.splice(i,1);
+      break;
+    }
+  }
+}
+
+canvas.addEventListener("mousedown",e=>handleInput(e.clientX,e.clientY));
+canvas.addEventListener("touchstart",e=>{
+  e.preventDefault();
+  handleInput(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+},{passive:false});
+
+/* ==============================
+   メインループ
+============================== */
+
+function gameLoop(now){
+  const dt=Math.min(0.033,(now-lastTime)/1000);
+  lastTime=now;
+
+  spawnTimer+=dt;
+  if(spawnTimer>=settings.spawnIntervalSec){
+    spawnCircle();
+    spawnTimer=0;
+  }
+
+  const {w,h}=getCanvasSize();
+
+  for(const c of circles){
+    c.y-=c.speed*dt;
+  }
+
+  circles=circles.filter(c=>c.y+c.radius>0);
+
+  ctx.clearRect(0,0,w,h);
+
+  for(const c of circles){
+    ctx.fillStyle=c.color;
+    ctx.beginPath();
+    ctx.arc(c.x,c.y,c.radius,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle="white";
+    ctx.font="16px Arial";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(c.points,c.x,c.y);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(t=>{
+  lastTime=t;
+  gameLoop(t);
+});
+</script>
 
 </body>
 </html>
