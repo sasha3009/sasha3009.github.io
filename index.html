@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Circle Tap — Combo & Difficulty</title>
+
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background:#111;
+    color:#fff;
+    font-family: system-ui, -apple-system, Segoe UI, Arial;
+  }
+
+  #gameCanvas {
+    display:block;
+    width:100vw;
+    height:100vh;
+    touch-action:none;
+  }
+
+  .hud {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    display:flex;
+    gap:12px;
+    align-items:center;
+    background: rgba(0,0,0,.35);
+    padding: 8px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+  }
+
+  .controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    background: rgba(0,0,0,.35);
+    padding: 8px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+  }
+
+  select {
+    appearance:none;
+    background:#222;
+    color:#fff;
+    border:1px solid #444;
+    padding:6px 10px;
+    border-radius:6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <span><b>Score:</b> <span id="scoreText">0</span></span>
+  <span id="comboText" style="margin-left:12px; color:#ffd54d; font-weight:700;"></span>
+</div>
+
+<div class="controls">
+  <label for="difficulty">難易度</label>
+  <select id="difficulty">
+    <option value="easy">Easy</option>
+    <option value="normal" selected>Normal</option>
+    <option value="hard">Hard</option>
+  </select>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- JS読み込み -->
+<script src="game.js"></script>
+
+</body>
+</html>
